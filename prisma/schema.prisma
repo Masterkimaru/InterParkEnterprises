@@ -1,0 +1,118 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+// Enum to define property purposes
+enum Purpose {
+  BUY
+  RENT
+}
+
+// User model with roles for both agents and clients
+model User {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  email     String   @unique
+  username  String   @unique
+  password  String
+  avatar    String?  // Optional profile picture
+  role      Role     // Role to differentiate between AgentLandlord and Client
+  createdAt DateTime @default(now())
+  
+
+  // Relations
+  agentLandlord AgentLandlord? // A user can optionally be an Agent/Landlord
+  client        Client?        // A user can optionally be a Client
+}
+
+// AgentLandlord model
+model AgentLandlord {
+  id                    String       @id @default(auto()) @map("_id") @db.ObjectId
+  userId                String       @unique @db.ObjectId
+  user                  User         @relation(fields: [userId], references: [id])
+  phoneNumber           String       // Phone number of the agent
+  nationalIdOrPassport  String       // National ID number or Passport number
+  agentNumber           String       // Unique agent number
+  properties            Property[]   // One AgentLandlord can have many properties
+  chatRooms             ChatRoom[]   // One AgentLandlord can have many chat rooms with clients
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+}
+
+// Client model
+model Client {
+  id            String       @id @default(auto()) @map("_id") @db.ObjectId
+  userId        String       @unique @db.ObjectId
+  user          User         @relation(fields: [userId], references: [id])
+  chatRooms     ChatRoom[]   // One Client can chat with multiple AgentLandlords about different properties
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  favorites      Favorites[]  // Relationship to Favorites model
+}
+
+// Property model
+model Property {
+  id                String       @id @default(auto()) @map("_id") @db.ObjectId
+  title             String
+  images            String[]     // URLs for images (min 5, max 15)
+  location          String       // Location of the property
+  purpose           Purpose      // Purpose of the property (Buy or Rent)
+  type              String       // Type of property: 1 bedroom, 2 bedroom, etc.
+  nearbyPlaces      String[]     // List of nearby amenities
+  price             Float        // Price for the property
+  description       String?      // Optional description of the property
+  agentLandlordId   String?      @db.ObjectId // Make this optional
+  agentLandlord     AgentLandlord? @relation(fields: [agentLandlordId], references: [id]) // Also make this optional
+  chatRooms         ChatRoom[]   // Each property can have many chat rooms for clients
+  favorites         Favorites[]   // List of favorites linked to this property
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+}
+
+// ChatRoom model for individual chats between agents and clients
+model ChatRoom {
+  id             String       @id @default(auto()) @map("_id") @db.ObjectId
+  propertyId     String       @db.ObjectId
+  property       Property     @relation(fields: [propertyId], references: [id])
+  agentLandlordId String      @db.ObjectId
+  agentLandlord  AgentLandlord @relation(fields: [agentLandlordId], references: [id])
+  clientId       String       @db.ObjectId
+  client         Client       @relation(fields: [clientId], references: [id])
+  messages       Message[]    // List of messages in the chat room
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([propertyId, agentLandlordId, clientId]) // Composite unique constraint
+}
+
+// Message model to store encrypted messages
+model Message {
+  id            String       @id @default(auto()) @map("_id") @db.ObjectId
+  chatRoomId    String       @db.ObjectId
+  chatRoom      ChatRoom     @relation(fields: [chatRoomId], references: [id])
+  senderId      String       // The sender can be either the AgentLandlord or the Client
+  content       String       // Encrypted message content (encrypted client-side)
+  timestamp     DateTime     @default(now())
+}
+
+// Favorites model for clients to like properties
+model Favorites {
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  clientId   String    @db.ObjectId // Make this field unique in the context of the Favorites model
+  client     Client    @relation(fields: [clientId], references: [id])
+  propertyId String    @db.ObjectId // Reference to liked property
+  property   Property  @relation(fields: [propertyId], references: [id]) // Relation to property liked
+}
+
+// Enum to define roles for user types
+enum Role {
+  AGENT_LANDLORD
+  CLIENT
+}
