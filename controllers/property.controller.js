@@ -10,7 +10,7 @@ const __dirname = path.dirname(__filename);
 const IMAGES_DIR = path.join(__dirname, '../uploads/Propertypic');
 
 // Base URL for images
-const BASE_URL = 'http://localhost:8000/uploads/Propertypic'; // Ensure this URL is correct
+const BASE_URL = 'https://interpark.onrender.com/uploads/Propertypic'; // Ensure this URL is correct
 
 // Controller to upload images
 export const uploadImages = async (req, res) => {
