@@ -68,7 +68,7 @@ model Property {
   nearbyPlaces      String[]     // List of nearby amenities
   price             Float        // Price for the property
   description       String?      // Optional description of the property
-  agentLandlordId   String?      @db.ObjectId // Make this optional
+  agentLandlordId   String      @db.ObjectId // Make this optional
   agentLandlord     AgentLandlord? @relation(fields: [agentLandlordId], references: [id]) // Also make this optional
   chatRooms         ChatRoom[]   // Each property can have many chat rooms for clients
   favorites         Favorites[]   // List of favorites linked to this property

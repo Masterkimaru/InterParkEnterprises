@@ -15,6 +15,6 @@ router.post('/add', addFavorite);
 router.delete('/remove', removeFavorite);
 
 // Route to get all favorites for a client
-router.get('/:clientId', getFavorites);
+router.get('/:userId', getFavorites);
 
 export default router;

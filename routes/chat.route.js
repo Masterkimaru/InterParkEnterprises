@@ -4,7 +4,8 @@ import {
     createChatRoom,
     sendMessage,
     getMessages,
-    getChatRoomsForUser // Import the new function
+    getChatRoomsForUser,
+    deleteChatRoom,  // Import the new function
 } from '../controllers/chat.controller.js';
 
 const router = express.Router();
@@ -20,5 +21,7 @@ router.get('/:chatRoomId/messages', getMessages);
 
 // Route to fetch chat rooms for a user
 router.get('/rooms/:userId', getChatRoomsForUser); // Use the base route to get chat rooms for the user
+// Route to delete a chat room
+router.delete('/delete/:chatRoomId', deleteChatRoom); // Add delete route
 
 export default router;

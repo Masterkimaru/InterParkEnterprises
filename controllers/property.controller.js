@@ -10,7 +10,7 @@ const __dirname = path.dirname(__filename);
 const IMAGES_DIR = path.join(__dirname, '../uploads/Propertypic');
 
 // Base URL for images
-const BASE_URL = 'https://interpark.onrender.com/uploads/Propertypic'; // Ensure this URL is correct
+const BASE_URL = 'http://localhost:8000/uploads/Propertypic'; // Ensure this URL is correct
 
 // Controller to upload images
 export const uploadImages = async (req, res) => {
@@ -133,6 +133,81 @@ export const getPropertiesByAgent = async (req, res) => {
     }
 };
 
+// Controller to get a property by propertyId
+export const getPropertyById = async (req, res) => {
+    const { propertyId } = req.params;
+
+    if (!propertyId) {
+        return res.status(400).json({ error: 'Property ID is required.' });
+    }
+
+    try {
+        const property = await prisma.property.findUnique({
+            where: { id: propertyId },
+            include: { agentLandlord: true },
+        });
+
+        if (!property) {
+            return res.status(404).json({ error: 'Property not found.' });
+        }
+
+        const formattedProperty = {
+            _id: { $oid: property.id },
+            title: property.title,
+            location: property.location,
+            type: property.type,
+            nearbyPlaces: property.nearbyPlaces,
+            price: { $numberDouble: property.price },
+            description: property.description,
+            purpose: property.purpose,
+            agentLandlordId: { $oid: property.agentLandlordId },
+            images: property.images.map(image => path.basename(image)),
+            createdAt: { $date: { $numberLong: new Date(property.createdAt).getTime() } },
+            updatedAt: { $date: { $numberLong: new Date(property.updatedAt).getTime() } },
+        };
+
+        res.status(200).json({ property: formattedProperty });
+    } catch (error) {
+        console.error('Error fetching property by ID:', error);
+        res.status(500).json({ error: 'Internal server error.' });
+    }
+};
+
+// Controller to get property titles based on propertyIds
+export const getPropertyTitles = async (req, res) => {
+    const { propertyIds } = req.body;
+
+    if (!propertyIds || !Array.isArray(propertyIds) || propertyIds.length === 0) {
+        return res.status(400).json({ error: 'Property IDs are required and must be an array.' });
+    }
+
+    try {
+        // Fetch properties with the specified propertyIds
+        const properties = await prisma.property.findMany({
+            where: {
+                id: { in: propertyIds },
+            },
+            select: {
+                id: true,
+                title: true,
+            },
+        });
+
+        // Map the titles to the propertyIds
+        const titles = properties.map(property => ({
+            propertyId: property.id,
+            title: property.title,
+        }));
+
+        res.status(200).json({ titles });
+    } catch (error) {
+        console.error('Error fetching property titles:', error);
+        res.status(500).json({ error: 'Internal server error.' });
+    }
+};
+
+
+
 // Serve individual image by filename
 export const getImageByFilename = (req, res) => {
     const { filename } = req.params;
@@ -158,3 +233,159 @@ export const getAllImageFilenames = (req, res) => {
         res.status(200).json({ images: imageFiles });
     });
 };
+
+// Controller to update a property by agentLandlordId
+export const updateProperty = async (req, res) => {
+    const { agentLandlordId, propertyId } = req.params;
+    const { title, location, type, price, description, nearbyPlaces, images, purpose } = req.body;
+
+    if (!title || !location || !type || !price || !description || !nearbyPlaces || !images || images.length === 0 || !purpose) {
+        return res.status(400).json({ error: 'All fields are required, including images and purpose.' });
+    }
+
+    try {
+        const property = await prisma.property.findUnique({ where: { id: propertyId } });
+        if (!property || property.agentLandlordId !== agentLandlordId) {
+            return res.status(404).json({ error: 'Property not found or unauthorized access.' });
+        }
+
+        const updatedProperty = await prisma.property.update({
+            where: { id: propertyId },
+            data: {
+                title,
+                location,
+                type,
+                price: parseFloat(price),
+                description,
+                nearbyPlaces: typeof nearbyPlaces === 'string' ? nearbyPlaces.split(',').map(p => p.trim()) : nearbyPlaces,
+                images,
+                purpose: purpose.toUpperCase() === 'BUY' ? 'BUY' : 'RENT',
+            },
+        });
+
+        res.status(200).json({ message: 'Property updated successfully!', property: updatedProperty });
+    } catch (error) {
+        console.error('Error updating property:', error);
+        res.status(500).json({ error: 'Internal server error.' });
+    }
+};
+
+// Controller to update images for a property
+export const updatePropertyImages = async (req, res) => {
+    const { propertyId } = req.params;
+    const { images } = req.body;  // Array of new image filenames
+
+    if (!images || images.length === 0) {
+        return res.status(400).json({ error: 'At least one image is required.' });
+    }
+
+    try {
+        const property = await prisma.property.findUnique({
+            where: { id: parseInt(propertyId) },
+        });
+
+        if (!property) {
+            return res.status(404).json({ error: 'Property not found.' });
+        }
+
+        // Update the images for the property
+        const updatedProperty = await prisma.property.update({
+            where: { id: parseInt(propertyId) },
+            data: { images: images },
+        });
+
+        res.status(200).json({
+            message: 'Property images updated successfully.',
+            property: updatedProperty,
+        });
+    } catch (error) {
+        console.error('Error updating property images:', error);
+        res.status(500).json({ error: 'Internal server error.' });
+    }
+};
+
+
+// Controller to delete a property by agentLandlordId
+export const deleteProperty = async (req, res) => {
+    const { agentLandlordId, propertyId } = req.params;
+
+    if (!propertyId) {
+        return res.status(400).json({ error: 'Property ID is required.' });
+    }
+
+    try {
+        // Step 1: Find the property and ensure it exists
+        const property = await prisma.property.findUnique({
+            where: { id: propertyId },
+            include: { chatRooms: true }, // Include chat rooms associated with the property
+        });
+
+        if (!property) {
+            return res.status(404).json({ error: 'Property not found.' });
+        }
+
+        // Optional: Check if the current agentLandlordId matches the property owner
+        if (property.agentLandlordId !== agentLandlordId) {
+            return res.status(403).json({ error: 'You are not authorized to delete this property.' });
+        }
+
+        // Step 2: Delete related favorites (if any)
+        await prisma.favorites.deleteMany({
+            where: {
+                propertyId: propertyId, // Delete favorites associated with the property
+            },
+        });
+
+        // Step 3: Delete related chat rooms (and their messages if necessary)
+        for (let chatRoom of property.chatRooms) {
+            // Optionally, delete related messages first if necessary
+            await prisma.message.deleteMany({
+                where: { chatRoomId: chatRoom.id },
+            });
+
+            // Delete the chat room itself
+            await prisma.chatRoom.delete({
+                where: { id: chatRoom.id },
+            });
+        }
+
+        // Step 4: Delete the property
+        await prisma.property.delete({
+            where: { id: propertyId },
+        });
+
+        return res.status(200).json({ message: 'Property and related chat rooms deleted successfully.' });
+    } catch (error) {
+        console.error('Error deleting property:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+  
+
+// Controller to delete an image by filename
+export const deleteImage = async (req, res) => {
+    const { filename } = req.params;
+
+    // Resolve the full image path
+    const imagePath = path.join(IMAGES_DIR, filename);
+
+    // Check if the image exists before attempting to delete
+    fs.access(imagePath, fs.constants.F_OK, (err) => {
+        if (err) {
+            console.error('Image not found:', err);
+            return res.status(404).json({ error: 'Image not found.' });
+        }
+
+        // If image exists, delete it
+        fs.unlink(imagePath, (err) => {
+            if (err) {
+                console.error('Error deleting image:', err);
+                return res.status(500).json({ error: 'Failed to delete image.' });
+            }
+
+            res.status(200).json({ message: 'Image deleted successfully.' });
+        });
+    });
+};
+

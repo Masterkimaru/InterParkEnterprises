@@ -6,7 +6,10 @@ import {
     logout, 
     uploadAvatar, 
     getAgentProfile, 
-    updateAgentProfile 
+    updateAgentProfile,
+    forgotPassword,
+    resetPassword,
+    getClientProfile  
 } from '../controllers/auth.controller.js';
 import upload from '../lib/multer.js'; // Your custom multer config
 
@@ -20,6 +23,12 @@ router.post('/login', login);
 
 // Logout Route
 router.post('/logout', logout);
+
+// Forgot Password Route
+router.post('/forgot-password', forgotPassword);
+
+// Reset Password Route
+router.post('/reset-password/:token', resetPassword);
 
 // Upload Avatar Route
 router.post('/upload-avatar/:userId', (req, res, next) => {
@@ -35,6 +44,9 @@ router.post('/upload-avatar/:userId', (req, res, next) => {
 
 // Get Agent Profile Route
 router.get('/agent-profile/:userId', getAgentProfile);
+
+// Get Client Profile Route
+router.get('/client-profile/:userId', getClientProfile);
 
 // Update Agent Profile Route
 router.put('/agent-profile/:userId', updateAgentProfile);

@@ -116,4 +116,33 @@ export const getChatRoomsForUser = async (req, res) => {
     }
 };
 
+// Delete a chat room
+export const deleteChatRoom = async (req, res) => {
+    const { chatRoomId } = req.params;
+
+    if (!chatRoomId) {
+        return res.status(400).json({ error: 'ChatRoom ID is required.' });
+    }
+
+    try {
+        // Find the chat room to ensure it exists
+        const chatRoom = await prisma.chatRoom.findUnique({
+            where: { id: chatRoomId },
+        });
+
+        if (!chatRoom) {
+            return res.status(404).json({ error: 'Chat room not found.' });
+        }
+
+        // Delete the chat room
+        await prisma.chatRoom.delete({
+            where: { id: chatRoomId },
+        });
+
+        return res.status(200).json({ message: 'Chat room deleted successfully.' });
+    } catch (error) {
+        console.error('Error deleting chat room:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+};
 
