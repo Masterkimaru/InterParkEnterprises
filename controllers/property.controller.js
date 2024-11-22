@@ -9,13 +9,13 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const IMAGES_DIR = path.join(__dirname, '../uploads/Propertypic');
 
-// Base URL for images
-const BASE_URL = 'http://localhost:8000/uploads/Propertypic'; // Ensure this URL is correct
+// Base URL for the DigitalOcean Space
+const BASE_URL = `https://${process.env.DO_SPACES_REGION}.digitaloceanspaces.com/${process.env.DO_SPACES_BUCKET_NAME}`;
 
 // Controller to upload images
 export const uploadImages = async (req, res) => {
     try {
-        const uploadedImages = req.files.map(file => `${BASE_URL}/${file.filename}`);
+        const uploadedImages = req.files.map(file => `${BASE_URL}/${file.key}`);
         res.status(200).json({ images: uploadedImages });
     } catch (error) {
         console.error('Image upload error:', error);
@@ -388,4 +388,3 @@ export const deleteImage = async (req, res) => {
         });
     });
 };
-
