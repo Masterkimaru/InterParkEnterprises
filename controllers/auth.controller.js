@@ -2,10 +2,11 @@ import bcrypt from 'bcryptjs';
 import nodemailer from 'nodemailer'; // Import nodemailer for email
 import prisma from '../lib/prisma.js';
 import jwt from 'jsonwebtoken';
-import fs from 'fs/promises';
-import path from 'path';
-import { fileTypeFromBuffer } from 'file-type';
- 
+//import fs from 'fs/promises';
+//import path from 'path';
+//import { fileTypeFromBuffer } from 'file-type';
+ // Base URL for the DigitalOcean Space
+ const BASE_URL = `https://${process.env.DO_SPACES_REGION}.digitaloceanspaces.com/${process.env.DO_SPACES_BUCKET_NAME}`;
 
 
 // **Register Function**
@@ -160,28 +161,16 @@ export const uploadAvatar = async (req, res) => {
             return res.status(400).json({ error: 'No file uploaded.' });
         }
 
-        const buffer = await fs.readFile(req.file.path);
-        const detectedType = await fileTypeFromBuffer(buffer);
-
-        if (!detectedType || !detectedType.mime.startsWith('image/')) {
-            return res.status(400).json({ error: 'Invalid file type.' });
-        }
-
         const { userId } = req.params;
+
         const user = await prisma.user.findUnique({ where: { id: userId } });
 
         if (!user) {
             return res.status(404).json({ error: 'User not found.' });
         }
 
-        // Delete old avatar if exists
-        if (user.avatar) {
-            const oldAvatarPath = path.join(process.cwd(), user.avatar.replace(/^.*[\\/]/, ''));
-            await fs.unlink(oldAvatarPath).catch(err => console.error('Error deleting old avatar:', err));
-        }
-
         // Save the new avatar URL
-        const avatarUrl = `${req.protocol}://${req.get('host')}/uploads/Propertypic/${req.file.filename}`;
+        const avatarUrl = `${BASE_URL}/${req.file.key}`;
         await prisma.user.update({ where: { id: userId }, data: { avatar: avatarUrl } });
 
         res.status(200).json({ message: 'Avatar uploaded successfully!', avatar: avatarUrl });
@@ -190,6 +179,7 @@ export const uploadAvatar = async (req, res) => {
         res.status(500).json({ error: 'Internal server error.' });
     }
 };
+
 
 // **Get Agent Profile Function**
 export const getAgentProfile = async (req, res) => {
