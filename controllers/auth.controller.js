@@ -20,7 +20,7 @@ export const register = async (req, res) => {
     try {
         // Check if user already exists via email or username
         const existingUser = await prisma.user.findFirst({
-            where: { OR: [{ email }, { username }] },
+            where: { OR: [{ email }, { username }] }
         });
 
         if (existingUser) {
@@ -53,6 +53,20 @@ export const register = async (req, res) => {
             });
         }
 
+        // Create role-specific profiles
+        if (role === 'AGENT_LANDLORD') {
+            await prisma.agentLandlord.create({
+                data: {
+                    userId: newUser.id,
+                    phoneNumber: '',
+                    nationalIdOrPassport: '',
+                    agentNumber: '',
+                }
+            });
+        } else if (role === 'CLIENT') {
+            await prisma.client.create({ data: { userId: newUser.id } });
+        }
+
         // Generate an email confirmation token
         const confirmationToken = jwt.sign(
             { id: newUser.id },
@@ -62,13 +76,14 @@ export const register = async (req, res) => {
 
         // Generate a deep linking confirmation link
         const confirmationLink = `${process.env.APP_BASE_URL}/confirm-email/${confirmationToken}`;
+
         // Send the confirmation email
         await transporter.sendMail({
             from: process.env.EMAIL_USER,
             to: email,
             subject: 'Email Confirmation',
             html: `
-                <p>Thank you for registering!</p>
+                <p>Thank you for registering to InterPark Enetrprises</p>
                 <p>Please click the link below to confirm your email address:</p>
                 <a href="${confirmationLink}">${confirmationLink}</a>
                 <p>This link will expire in 1 hour.</p>
@@ -84,6 +99,7 @@ export const register = async (req, res) => {
         res.status(500).json({ error: 'Internal server error.' });
     }
 };
+
 
 
 // **Verify User Existence Function**
