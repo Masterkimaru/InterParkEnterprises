@@ -20,7 +20,7 @@ export const register = async (req, res) => {
     try {
         // Check if user already exists via email or username
         const existingUser = await prisma.user.findFirst({
-            where: { OR: [{ email }, { username }] }
+            where: { OR: [{ email }, { username }] },
         });
 
         if (existingUser) {
@@ -29,6 +29,7 @@ export const register = async (req, res) => {
 
         let newUser;
         if (googleId) {
+            // Create a user with Google authentication
             newUser = await prisma.user.create({
                 data: {
                     username: username || email.split('@')[0],
@@ -36,9 +37,10 @@ export const register = async (req, res) => {
                     role,
                     googleId,
                     avatar: avatar || null,
-                }
+                },
             });
         } else {
+            // Create a user with email/password authentication
             const hashedPassword = await bcrypt.hash(password, 10);
             newUser = await prisma.user.create({
                 data: {
@@ -47,24 +49,37 @@ export const register = async (req, res) => {
                     password: hashedPassword,
                     role,
                     avatar: avatar || null,
-                }
+                },
             });
         }
 
         // Generate an email confirmation token
-        const confirmationToken = jwt.sign({ id: newUser.id }, process.env.JWT_SECRET_KEY, { expiresIn: '1h' });
+        const confirmationToken = jwt.sign(
+            { id: newUser.id },
+            process.env.JWT_SECRET_KEY,
+            { expiresIn: '1h' },
+        );
+
+        // Generate a deep linking confirmation link
+        const confirmationLink = `${process.env.APP_BASE_URL}confirm-email/${confirmationToken}`;
 
         // Send the confirmation email
-        const confirmationLink = `${req.protocol}://${req.get('host')}/api/confirm-email/${confirmationToken}`;
         await transporter.sendMail({
             from: process.env.EMAIL_USER,
             to: email,
             subject: 'Email Confirmation',
-            html: `<p>Click <a href="${confirmationLink}">here</a> to confirm your email address. This link will expire in 1 hour.</p>`,
+            html: `
+                <p>Thank you for registering!</p>
+                <p>Please click the link below to confirm your email address:</p>
+                <a href="${confirmationLink}">${confirmationLink}</a>
+                <p>This link will expire in 1 hour.</p>
+            `,
         });
 
-        // Send a response
-        res.status(201).json({ message: 'User registered successfully! Please check your email to confirm your email address.' });
+        // Send a success response
+        res.status(201).json({
+            message: 'User registered successfully! Please check your email to confirm your email address.',
+        });
     } catch (error) {
         console.error('Registration Error:', error);
         res.status(500).json({ error: 'Internal server error.' });
@@ -340,27 +355,32 @@ export const confirmEmail = async (req, res) => {
         const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
         const userId = decoded.id;
 
-        // Find the user and check if they are already confirmed
+        // Find the user
         const user = await prisma.user.findUnique({ where: { id: userId } });
 
         if (!user) {
             return res.status(404).json({ error: 'User not found.' });
         }
 
-        // Optionally, you can add a 'isConfirmed' field in the user model if you want to track email confirmation
+        // Check if the user is already confirmed
         if (user.isConfirmed) {
             return res.status(400).json({ error: 'Email is already confirmed.' });
         }
 
-        // Mark the user's email as confirmed (optional, but good for tracking)
+        // Mark the user's email as confirmed
         await prisma.user.update({
             where: { id: userId },
             data: { isConfirmed: true },
         });
 
-        res.status(200).json({ message: 'Email confirmed successfully!' });
+        // Return a success response
+        res.status(200).json({
+            message: 'Email confirmed successfully!',
+            user: { id: user.id, email: user.email, username: user.username },
+        });
     } catch (error) {
         console.error('Confirm Email Error:', error);
         res.status(400).json({ error: 'Invalid or expired token.' });
     }
 };
+
