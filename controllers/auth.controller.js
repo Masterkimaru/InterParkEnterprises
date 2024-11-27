@@ -61,8 +61,7 @@ export const register = async (req, res) => {
         );
 
         // Generate a deep linking confirmation link
-        const confirmationLink = `${process.env.APP_BASE_URL}confirm-email/${confirmationToken}`;
-
+        const confirmationLink = `${process.env.APP_BASE_URL}/confirm-email/${confirmationToken}`;
         // Send the confirmation email
         await transporter.sendMail({
             from: process.env.EMAIL_USER,
