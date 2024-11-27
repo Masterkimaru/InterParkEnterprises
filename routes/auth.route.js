@@ -9,9 +9,10 @@ import {
     updateAgentProfile,
     forgotPassword,
     resetPassword,
-    getClientProfile  
+    getClientProfile,
+    verifyUserExistence  
 } from '../controllers/auth.controller.js';
-import upload from '../lib/multer.js'; // Your custom multer config
+import  upload  from '../lib/multer.js'; // Correct for named exports
 
 const router = express.Router();
 
@@ -29,6 +30,8 @@ router.post('/forgot-password', forgotPassword);
 
 // Reset Password Route
 router.post('/reset-password/:token', resetPassword);
+
+router.post('/verify-user', verifyUserExistence);
 
 // Upload Avatar Route
 router.post('/upload-avatar/:userId', (req, res, next) => {
