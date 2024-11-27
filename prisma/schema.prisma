@@ -25,6 +25,7 @@ model User {
   avatar    String?  // Optional profile picture
   role      Role     // Role to differentiate between AgentLandlord and Client
   createdAt DateTime @default(now())
+  isConfirmed Boolean @default(false) // Add this line to track verification status
   
 
   // Relations
