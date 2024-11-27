@@ -23,44 +23,22 @@ export const register = async (req, res) => {
             where: { OR: [{ email }, { username }] }
         });
 
-        // If user exists and registering via Google, just update the role
         if (existingUser) {
-            if (googleId) {
-                // If the user is registering with Google, update role and return the user
-                const updatedUser = await prisma.user.update({
-                    where: { id: existingUser.id },
-                    data: { role: role || existingUser.role }, // Ensure the role is updated
-                });
-
-                // Optionally handle avatar update if required
-                if (avatar && !existingUser.avatar) {
-                    await prisma.user.update({
-                        where: { id: existingUser.id },
-                        data: { avatar },
-                    });
-                }
-
-                return res.status(200).json({ message: 'User already exists, registered via Google.', user: updatedUser });
-            } else {
-                return res.status(400).json({ error: 'User with this email or username already exists.' });
-            }
+            return res.status(400).json({ error: 'User with this email or username already exists.' });
         }
 
-        // If no user exists and registering via Google, don't require password
         let newUser;
         if (googleId) {
-            // Register the user with Google data, without password
             newUser = await prisma.user.create({
                 data: {
-                    username: username || email.split('@')[0], // Set default username if none provided
+                    username: username || email.split('@')[0],
                     email,
                     role,
                     googleId,
-                    avatar: avatar || null, // Optionally set avatar if provided
+                    avatar: avatar || null,
                 }
             });
         } else {
-            // Register user via email/password
             const hashedPassword = await bcrypt.hash(password, 10);
             newUser = await prisma.user.create({
                 data: {
@@ -73,26 +51,26 @@ export const register = async (req, res) => {
             });
         }
 
-        // Create role-specific profiles
-        if (role === 'AGENT_LANDLORD') {
-            await prisma.agentLandlord.create({
-                data: {
-                    userId: newUser.id,
-                    phoneNumber: '',
-                    nationalIdOrPassport: '',
-                    agentNumber: '',
-                }
-            });
-        } else if (role === 'CLIENT') {
-            await prisma.client.create({ data: { userId: newUser.id } });
-        }
+        // Generate an email confirmation token
+        const confirmationToken = jwt.sign({ id: newUser.id }, process.env.JWT_SECRET_KEY, { expiresIn: '1h' });
 
-        res.status(201).json({ message: 'User registered successfully!', user: newUser });
+        // Send the confirmation email
+        const confirmationLink = `${req.protocol}://${req.get('host')}/api/confirm-email/${confirmationToken}`;
+        await transporter.sendMail({
+            from: process.env.EMAIL_USER,
+            to: email,
+            subject: 'Email Confirmation',
+            html: `<p>Click <a href="${confirmationLink}">here</a> to confirm your email address. This link will expire in 1 hour.</p>`,
+        });
+
+        // Send a response
+        res.status(201).json({ message: 'User registered successfully! Please check your email to confirm your email address.' });
     } catch (error) {
         console.error('Registration Error:', error);
         res.status(500).json({ error: 'Internal server error.' });
     }
 };
+
 
 // **Verify User Existence Function**
 export const verifyUserExistence = async (req, res) => {
@@ -136,7 +114,6 @@ export const login = async (req, res) => {
     }
 
     try {
-        // Find the user by either username or email
         const user = await prisma.user.findFirst({
             where: {
                 OR: [{ username }, { email: username }]
@@ -147,23 +124,23 @@ export const login = async (req, res) => {
             return res.status(401).json({ error: 'Invalid credentials.' });
         }
 
-        // Check if the password is valid
+        if (!user.isConfirmed) {
+            return res.status(400).json({ error: 'Please confirm your email before logging in.' });
+        }
+
         const isPasswordValid = await bcrypt.compare(password, user.password);
         if (!isPasswordValid) {
             return res.status(401).json({ error: 'Invalid credentials.' });
         }
 
-        // Generate a token
         const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET_KEY, { expiresIn: '1h' });
 
-        // Set the token in a cookie
         res.cookie('auth_token', token, {
             httpOnly: true,
-            maxAge: 3600 * 1000, // 1 hour
+            maxAge: 3600 * 1000,
             sameSite: 'strict',
         });
 
-        // Return a successful response
         res.status(200).json({
             message: 'Login successful!',
             token,
@@ -174,6 +151,7 @@ export const login = async (req, res) => {
         res.status(500).json({ error: 'Internal server error.' });
     }
 };
+
 
 
 // **Logout Function**
@@ -350,5 +328,39 @@ export const resetPassword = async (req, res) => {
     } catch (error) {
         console.error('Reset Password Error:', error);
         res.status(500).json({ error: 'Invalid or expired token.' });
+    }
+};
+
+// **Confirm Email Function**
+export const confirmEmail = async (req, res) => {
+    const { token } = req.params;
+
+    try {
+        // Verify the token
+        const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
+        const userId = decoded.id;
+
+        // Find the user and check if they are already confirmed
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+
+        if (!user) {
+            return res.status(404).json({ error: 'User not found.' });
+        }
+
+        // Optionally, you can add a 'isConfirmed' field in the user model if you want to track email confirmation
+        if (user.isConfirmed) {
+            return res.status(400).json({ error: 'Email is already confirmed.' });
+        }
+
+        // Mark the user's email as confirmed (optional, but good for tracking)
+        await prisma.user.update({
+            where: { id: userId },
+            data: { isConfirmed: true },
+        });
+
+        res.status(200).json({ message: 'Email confirmed successfully!' });
+    } catch (error) {
+        console.error('Confirm Email Error:', error);
+        res.status(400).json({ error: 'Invalid or expired token.' });
     }
 };
