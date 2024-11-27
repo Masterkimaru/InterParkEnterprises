@@ -94,6 +94,37 @@ export const register = async (req, res) => {
     }
 };
 
+// **Verify User Existence Function**
+export const verifyUserExistence = async (req, res) => {
+    const { email, username } = req.body;
+
+    if (!email && !username) {
+        return res.status(400).json({ error: 'Email or username is required.' });
+    }
+
+    try {
+        // Check if a user exists with the given email or username
+        const user = await prisma.user.findFirst({
+            where: {
+                OR: [
+                    { email: email || undefined }, // Check if email is provided
+                    { username: username || undefined }, // Check if username is provided
+                ],
+            },
+        });
+
+        if (user) {
+            return res.status(200).json({ exists: true, message: 'User exists.' });
+        }
+
+        res.status(404).json({ exists: false, message: 'User does not exist.' });
+    } catch (error) {
+        console.error('Verify User Existence Error:', error);
+        res.status(500).json({ error: 'Internal server error.' });
+    }
+};
+
+
 // **Login Function**
 export const login = async (req, res) => {
     const { username, password } = req.body;
