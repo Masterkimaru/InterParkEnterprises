@@ -10,7 +10,8 @@ import {
     forgotPassword,
     resetPassword,
     getClientProfile,
-    verifyUserExistence  
+    verifyUserExistence,
+    confirmEmail  
 } from '../controllers/auth.controller.js';
 import  upload  from '../lib/multer.js'; // Correct for named exports
 
@@ -32,6 +33,8 @@ router.post('/forgot-password', forgotPassword);
 router.post('/reset-password/:token', resetPassword);
 
 router.post('/verify-user', verifyUserExistence);
+
+router.get('/confirm-email/:token', confirmEmail);
 
 // Upload Avatar Route
 router.post('/upload-avatar/:userId', (req, res, next) => {
