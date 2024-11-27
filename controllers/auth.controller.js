@@ -117,12 +117,14 @@ export const verifyUserExistence = async (req, res) => {
             return res.status(200).json({ exists: true, message: 'User exists.' });
         }
 
-        res.status(404).json({ exists: false, message: 'User does not exist.' });
+        // If no user found, return response with exists: false
+        res.status(200).json({ exists: false, message: 'User does not exist.' });
     } catch (error) {
         console.error('Verify User Existence Error:', error);
         res.status(500).json({ error: 'Internal server error.' });
     }
 };
+
 
 
 // **Login Function**
