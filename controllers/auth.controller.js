@@ -265,7 +265,7 @@ export const updateAgentProfile = async (req, res) => {
       console.error('Update Profile Error:', error);
       res.status(500).json({ error: 'Internal server error.' });
     }
-  };
+};
 
   // **Get Client Profile Function**
 export const getClientProfile = async (req, res) => {
